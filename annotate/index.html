@@ -179,12 +179,21 @@
     if (!rows.length || !rows[0].variants || !rows[0].variants.pcm) throw new Error("bad format");
     return rows;
   }
+  // Fingerprint of the dataset: if any item is added, removed or reworded,
+  // old saved progress no longer matches and the page starts fresh.
+  let fp = "";
+  function fingerprint(rows) {
+    const s = rows.map(r => r.id + "\u0001" + r.variants.pcm).join("\u0002");
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    return h.toString(16) + "-" + rows.length;
+  }
   function onItems(rows) {
-    items = rows;
+    items = rows; fp = fingerprint(rows);
     $("loaded").textContent = `${items.length} items loaded`;
     $("loadBox").classList.add("hidden");
     const saved = load();
-    if (saved && saved.queue && saved.queue.length && saved.queue.every(id => items.some(it => it.id === id))) {
+    if (saved && saved.fp === fp && saved.queue && saved.queue.length) {
       state = saved; $("name").value = state.name; $("sample").value = String(state.sample);
       $("start").textContent = Object.keys(state.labels).length ? "Continue labelling" : "Start labelling";
     }
@@ -205,8 +214,10 @@
     if (!items.length) { $("setupErr").textContent = "Load the items file first."; return; }
     if (!name) { $("setupErr").textContent = "Enter your name or initials."; $("name").focus(); return; }
     const pct = Number($("sample").value);
-    if (!state.queue.length || state.sample !== pct) { state.queue = pickSample(pct); state.idx = 0; state.labels = {}; }
-    state.name = name; state.sample = pct; save();
+    if (!state.queue.length || state.sample !== pct || state.fp !== fp) {
+      state.queue = pickSample(pct); state.idx = 0; state.labels = {};
+    }
+    state.name = name; state.sample = pct; state.fp = fp; save();
     show("work"); render();
   });
 
@@ -263,7 +274,7 @@
   // ---- finish / export ----
   function finish() { $("doneCount").textContent = Object.keys(state.labels).length; show("done"); }
   function download() {
-    const out = { tool: "salecta-annotate", version: 1, annotator: state.name, sample_pct: state.sample,
+    const out = { tool: "salecta-annotate", version: 1, dataset_fp: state.fp, annotator: state.name, sample_pct: state.sample,
                   exported_at: new Date().toISOString(), n_items: state.queue.length,
                   labels: state.queue.filter(id => state.labels[id]).map(id => state.labels[id]) };
     const blob = new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });
