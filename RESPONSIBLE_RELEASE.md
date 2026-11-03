@@ -21,7 +21,11 @@ draws the line between the two.
 **Disclosure**
 - If a model shows a large Pidgin-vs-English gap on the harmful split, I will
   notify the provider through its safety or vulnerability reporting channel
-  at least 14 days before publishing, and say so in the write-up.
+  and say so in the write-up.
+- Per-model harmful-split results for that provider are published only after
+  14 days have passed since notification. Until then, the harmful split is
+  reported pooled across models. Benign-split (over-refusal) results are
+  published immediately, since they expose no bypass.
 
 **Logs**
 - `logs/` and `results_raw/` are git-ignored because they contain full model

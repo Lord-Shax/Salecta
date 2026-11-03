@@ -66,7 +66,8 @@ the utterance actually means.
 
 ## Method
 
-- **Dataset (v0.1 target):** 150–250 items. Each item has three variants:
+- **Dataset (v0.1 target):** 90–120 items, about 60% benign and 40% harmful.
+  Each item has three variants:
   `en`, `pcm` (Pidgin) and `cs` (code-switched English–Pidgin).
   - *Benign split:* phrases that sound harsh but are harmless, such as
     hyperbole, banter, idioms and everyday requests that use alarming words.
@@ -75,10 +76,11 @@ the utterance actually means.
     no CBRN or weapons items. Items are adapted from existing public English
     benchmarks where possible, so English baselines are comparable.
 - **Annotation:** I write the Pidgin items as a native speaker. A second
-  native speaker independently labels 20–30% of items, and I report their
+  native speaker independently labels a stratified 30% of items, and I report their
   agreement (Cohen's κ). Items they disagree on are discussed and either
   fixed or dropped.
-- **Models:** 3–4 models, including at least one open-weight model.
+- **Models:** 3 models from different providers, including at least one
+  open-weight model.
 - **Harness:** [Inspect](https://inspect.aisi.org.uk/), the UK AI Security
   Institute's open-source evaluation framework, so anyone can reproduce the
   results with one command.
@@ -95,23 +97,32 @@ the utterance actually means.
 1. A public GitHub repo containing the dataset, the Inspect task, the
    analysis scripts and the results.
 2. A dataset card with label guidelines and the agreement statistics.
-3. A 1,500–2,500 word write-up (blog / LessWrong / Alignment Forum)
-   covering the results, failure examples and limitations.
+3. A 1,200–1,800 word write-up (blog / LessWrong) covering the results,
+   failure examples and limitations.
 
 ## Responsible release
 
 The harmful split publishes **prompts and aggregate refusal rates only**.
-Harmful model outputs are never published. I will share findings with the
-affected model providers before publication. See `RESPONSIBLE_RELEASE.md`.
+Harmful model outputs are never published. Providers are notified on day 5.
+If a provider shows a large harmful-split gap, the day-7 write-up reports
+that split pooled across models, and the per-model harmful numbers follow
+once the 14-day disclosure window closes. See `RESPONSIBLE_RELEASE.md`.
 
-## Timeline (part-time, ~4 weeks)
+## Timeline (1 week, ~4–6 hours a day)
 
-| Week | Work |
-|---|---|
-| 1 | Finalise label guide; write 150+ items; recruit second annotator |
-| 2 | Annotation + agreement; pilot run on 1 model; fix grader prompt |
-| 3 | Full runs on 3–4 models; grader validation; analysis |
-| 4 | Write-up, dataset card, repo polish, disclosure to providers |
+| Day | Work | Done when |
+|---|---|---|
+| 1 | Rewrite the 18 drafts in my own Pidgin; write ~40 new items; line up a second annotator | 60 items in `items.jsonl`, annotator has agreed |
+| 2 | Write the remaining ~40–60 items; send the labelling link; run the pilot (1 model, `--limit 30`) and read every response in `inspect view` | 90–120 items; pilot shows the grader labels make sense |
+| 3 | Fix the grader prompt and any broken items from the pilot; run all 3 models on the full set | Full logs for 3 models |
+| 4 | Hand-check 15% of grader labels; run `salecta.analyze`; pick 3–4 clear failure examples | Results tables, chart, grader-accuracy figure |
+| 5 | Score the annotator's file and fix or drop the items they disagreed with; re-score affected items; email providers if any harmful-split gap is large | κ reported; final numbers; disclosure sent if needed |
+| 6 | Write the write-up: question, method, results, failure examples, limitations | Full draft |
+| 7 | Edit the write-up; finish the README and dataset card; publish the repo, post and Pages link; add them to the application | Everything public and linked |
+
+**Fallbacks if the week slips:** cut to 2 models before cutting items. If
+the second annotator is late, publish with "agreement pending" and add the κ
+in an update. Never skip the grader hand-check.
 
 ## Limitations (stated up front)
 

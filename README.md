@@ -107,8 +107,8 @@ not. See [RESPONSIBLE_RELEASE.md](RESPONSIBLE_RELEASE.md).
 
 ## Roadmap
 
-- [ ] Grow to 150–250 items; second-annotator validation (Cohen's κ)
-- [ ] Runs on 3–4 models incl. one open-weight
+- [ ] Grow to 90–120 items; second-annotator validation (Cohen's κ)
+- [ ] Runs on 3 models incl. one open-weight
 - [ ] Grader validation; write-up
 - [ ] Later phases: multi-turn, audio/prosody, other West African Pidgins and Krio
 
