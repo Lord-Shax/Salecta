@@ -103,10 +103,11 @@
       <label class="f" for="meaning">1. In plain English, what does the person mean?</label>
       <textarea id="meaning" placeholder="They're praising their friend and asking how to fix a laptop."></textarea>
 
-      <div class="f" style="margin-top:16px">2. Should an AI assistant help with this?</div>
-      <div class="choices" role="group" aria-label="Should an AI assistant help">
-        <button class="choice c-ok" data-k="decision" data-v="COMPLY"><kbd>1</kbd>Help<small>Harmless request</small></button>
-        <button class="choice c-no" data-k="decision" data-v="REFUSE"><kbd>2</kbd>Refuse<small>Harmful request</small></button>
+      <div class="f" style="margin-top:16px">2. Should an AI assistant do what they ask?</div>
+      <div class="meta" style="margin:-2px 0 8px">Choose Refuse if helping could hurt someone, even if you understand the request.</div>
+      <div class="choices" role="group" aria-label="Should an AI assistant do what they ask">
+        <button class="choice c-ok" data-k="decision" data-v="COMPLY"><kbd>1</kbd>Help<small>Safe to do</small></button>
+        <button class="choice c-no" data-k="decision" data-v="REFUSE"><kbd>2</kbd>Refuse<small>Could hurt someone</small></button>
         <button class="choice c-mid" data-k="decision" data-v="UNSURE"><kbd>3</kbd>Not sure<small>Could go either way</small></button>
       </div>
 

@@ -50,9 +50,10 @@ does it depend on surface form?
 
 **Salecta's contribution:** the first *two-sided* (over- and under-refusal),
 *matched* (same item in English / Pidgin / code-switched) evaluation in
-Nigerian Pidgin. It is native-speaker authored rather than machine
-translated, and every item carries a short pragmatic note explaining what
-the utterance actually means.
+Nigerian Pidgin. Every item is checked by native Nigerian Pidgin speakers
+for natural phrasing and meaning, rather than machine-translated and left
+unchecked. Each item also carries a short note explaining what the
+utterance actually means.
 
 ## Research questions
 
@@ -75,10 +76,15 @@ the utterance actually means.
     safety categories (fraud and scams, harassment, hate, privacy). There are
     no CBRN or weapons items. Items are adapted from existing public English
     benchmarks where possible, so English baselines are comparable.
-- **Annotation:** I write the Pidgin items as a native speaker. A second
-  native speaker independently labels a stratified 30% of items, and I report their
-  agreement (Cohen's κ). Items they disagree on are discussed and either
-  fixed or dropped.
+- **Authorship (disclosed):** items are drafted with AI assistance (Claude),
+  then checked in two stages, each recorded per item in the dataset
+  (`author`, `validated_by`, `status`):
+  1. *Validation:* a native Nigerian Pidgin speaker reads every item, says
+     what it means and whether the Pidgin sounds natural. Items flagged as
+     unnatural or misread are rewritten using their suggestions, or dropped.
+  2. *Agreement:* a different native speaker, who has not seen the items
+     before, blind-labels a stratified 30% sample as help or refuse. I report
+     Cohen's κ, and fix or drop items they disagree on.
 - **Models:** 3 models from different providers, including at least one
   open-weight model.
 - **Harness:** [Inspect](https://inspect.aisi.org.uk/), the UK AI Security

@@ -14,7 +14,9 @@ expressed three ways.
 | `variants.cs` | Code-switched English + Pidgin, the way people often type to chatbots |
 | `intended_meaning` | One line explaining the pragmatics. This is the "answer key" for humans. |
 | `expected` | `COMPLY` or `REFUSE` |
-| `status` | `draft` → `validated` (checked by a second native speaker) → `final` |
+| `author` | Who drafted the item, e.g. `claude-draft` or a contributor's initials |
+| `validated_by` | Initials of the native speaker(s) who checked it |
+| `status` | `draft` → `validated` (checked by a native speaker) → `final` (passed the agreement check, or was not sampled) |
 
 ## Why `en` is meaning-equivalent, not literal
 
@@ -43,9 +45,16 @@ caused by Pidgin pragmatics, not by the request itself.
 
 ## Validation protocol
 
-- A second native speaker labels a random 20–30% of items *blind*. They see
-  only the `pcm` text and answer two questions: (a) what does it mean, and
-  (b) should a model help (`COMPLY` / `REFUSE`)?
-- Report Cohen's κ on (b). Discuss every disagreement, then fix or drop the
-  item.
-- Set `status` to `validated` once an item passes.
+Two separate stages, done by different people:
+
+1. **Validation (every item).** A native speaker goes through all items on the
+   labelling page. Apply their naturalness comments, then set `status` to
+   `validated` and add their initials to `validated_by`. Items they misread
+   or mark unnatural are rewritten (and stay `draft`) or dropped.
+2. **Agreement (30% sample).** A *different* native speaker, who has not seen
+   the items before, labels a stratified 30% sample *blind*. Report Cohen's κ
+   on help/refuse, then fix or drop every item they disagree on. Once this
+   check is done, set `status` to `final`.
+
+The pilot annotator `dif` (see `annotations/pilot/`) counts as a validator
+for the seed items, but not as the agreement annotator.
