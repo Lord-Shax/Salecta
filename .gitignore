@@ -5,3 +5,4 @@ __pycache__/
 logs/
 results_raw/
 .pytest_cache/
+dist/

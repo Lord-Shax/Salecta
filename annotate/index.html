@@ -99,6 +99,7 @@
     <div class="row meta">
       <span id="pos">Item 1 of 1</span><span class="spacer"></span><span id="who"></span>
     </div>
+    <div class="row meta" style="justify-content:flex-end;font-size:13px"><span id="sync" aria-live="polite"></span></div>
     <div class="bar"><i id="prog"></i></div>
 
     <div class="card" style="margin-top:16px">
@@ -142,7 +143,7 @@
   <section id="done" class="card hidden">
     <h2>All done. Thank you.</h2>
     <p><span class="done-stat" id="doneCount">0</span> <span class="meta">items labelled</span></p>
-    <p class="note">Download your labels and send the file back to the project owner.</p>
+    <p class="note" id="doneNote">Download your labels and send the file back to the project owner.</p>
     <div class="row">
       <button class="primary" id="export">Download labels</button>
       <button id="review">Review my answers</button>
@@ -172,9 +173,54 @@
   let queue = [];        // ids to label (order fixed once started)
   let state = { name: "", sample: 30, queue: [], idx: 0, labels: {} };
 
-  // ---- storage (may be unavailable; fall back to memory) ----
-  const save = () => { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} };
+  // ---- storage ----
+  // Always kept in this browser. When the page runs as a Claude artifact, each
+  // annotator's progress is also saved to the artifact's database at
+  // labels/<their id>, where the project owner (and Claude) can read it.
+  const local = () => { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} };
   const load = () => { try { return JSON.parse(localStorage.getItem(STORE) || "null"); } catch (e) { return null; } };
+  const inArtifact = !!(window.claude && typeof window.claude.use === "function");
+  let remote = null;            // DocumentReference for labels/<uid>, when online saving works
+  let remoteState = "off";      // off | connecting | saved | saving | failed
+  let writing = false, again = false;
+  function setSync(s, text) {
+    remoteState = s;
+    const msg = text || { off: "", connecting: "Connecting…", saving: "Saving…",
+      saved: "Saved online", failed: "Saved on this device only" }[s];
+    $("sync").textContent = msg;
+  }
+  async function pushRemote() {
+    if (!remote) return;
+    if (writing) { again = true; return; }
+    writing = true; setSync("saving");
+    try {
+      await remote.set({ tool: "salecta-annotate", version: 1, dataset_fp: state.fp, annotator: state.name,
+                         sample_pct: state.sample, queue: state.queue, idx: state.idx, labels: state.labels,
+                         n_items: state.queue.length, n_done: Object.keys(state.labels).length,
+                         updated_at: new Date().toISOString() });
+      setSync("saved");
+    } catch (e) {
+      if (e && (e.code === "unavailable")) { again = true; }
+      else { remote = null; setSync("failed"); }
+    } finally {
+      writing = false;
+      if (again && remote) { again = false; setTimeout(pushRemote, 800 + Math.random() * 700); }
+    }
+  }
+  const save = () => { local(); pushRemote(); };
+  const remoteReady = (async () => {
+    if (!inArtifact) return null;
+    try {
+      const [db, user] = await Promise.all([window.claude.use("db"), window.claude.use("user")]);
+      if (!db || !user) { setSync("failed"); return null; }
+      const uid = await user.id();
+      if (!uid) { setSync("failed"); return null; }
+      const ref = db.doc("labels/" + uid);
+      const snap = await Promise.race([ref.get(), new Promise((_, rej) => setTimeout(() => rej({ code: "timeout" }), 10000))]);
+      remote = ref; setSync("saved", "Online saving on");
+      return snap.exists ? snap.data() : null;
+    } catch (e) { setSync("failed"); return null; }
+  })();
 
   // ---- deterministic shuffle so the sample is reproducible ----
   function seeded(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 2 ** 32); }
@@ -209,15 +255,31 @@
     items = rows; fp = fingerprint(rows);
     $("loaded").textContent = `${items.length} items loaded`;
     $("loadBox").classList.add("hidden");
-    const saved = load();
-    if (saved && saved.fp === fp && saved.queue && saved.queue.length) {
-      state = saved; $("name").value = state.name; $("sample").value = String(state.sample);
+    const adopt = (saved) => {
+      state = { name: saved.annotator || saved.name || "", sample: saved.sample_pct || saved.sample || 30,
+                queue: saved.queue, idx: saved.idx || 0, labels: saved.labels || {}, fp: saved.fp || saved.dataset_fp };
+      $("name").value = state.name; $("sample").value = String(state.sample);
       $("start").textContent = Object.keys(state.labels).length ? "Continue labelling" : "Start labelling";
-    }
+    };
+    const saved = load();
+    if (saved && saved.fp === fp && saved.queue && saved.queue.length) adopt(saved);
+    // Progress saved online wins if it is further along (e.g. started on another device).
+    remoteReady.then(r => {
+      if (!r || r.dataset_fp !== fp || !r.queue || !r.queue.length) return;
+      if (!$("setup").classList.contains("hidden") &&
+          Object.keys(r.labels || {}).length >= Object.keys(state.labels).length) { adopt(r); local(); }
+    });
   }
-  fetch("../data/items.jsonl").then(r => { if (!r.ok) throw 0; return r.text(); })
-    .then(t => onItems(parseItems(t)))
-    .catch(() => { $("loaded").textContent = "No items loaded yet"; $("loadBox").classList.remove("hidden"); });
+  // Items come from data embedded in the page (artifact build) or from the repo (GitHub Pages).
+  const embedded = document.getElementById("salecta-items");
+  if (embedded) {
+    try { onItems(parseItems(embedded.textContent)); }
+    catch (e) { $("loaded").textContent = "The item list in this page is damaged."; }
+  } else {
+    fetch("../data/items.jsonl").then(r => { if (!r.ok) throw 0; return r.text(); })
+      .then(t => onItems(parseItems(t)))
+      .catch(() => { $("loaded").textContent = "No items loaded yet"; $("loadBox").classList.remove("hidden"); });
+  }
   $("file").addEventListener("change", e => {
     const f = e.target.files[0]; if (!f) return;
     f.text().then(t => { try { onItems(parseItems(t)); $("setupErr").textContent = ""; }
@@ -289,11 +351,33 @@
   });
 
   // ---- finish / export ----
-  function finish() { $("doneCount").textContent = Object.keys(state.labels).length; show("done"); }
-  function download() {
-    const out = { tool: "salecta-annotate", version: 1, dataset_fp: state.fp, annotator: state.name, sample_pct: state.sample,
-                  exported_at: new Date().toISOString(), n_items: state.queue.length,
-                  labels: state.queue.filter(id => state.labels[id]).map(id => state.labels[id]) };
+  function finish() {
+    $("doneCount").textContent = Object.keys(state.labels).length;
+    const online = !!remote;
+    $("doneNote").textContent = online
+      ? "Your labels are saved online and the project owner can already see them. There's nothing to send."
+      : inArtifact
+        ? "Online saving isn't working for your account. Copy your labels and paste them into a message to the project owner."
+        : "Download your labels and send the file back to the project owner.";
+    $("export").textContent = online ? (inArtifact ? "Copy a backup" : "Download a backup")
+                                     : (inArtifact ? "Copy labels" : "Download labels");
+    $("exportEarly").textContent = inArtifact ? "Copy progress so far" : "Export progress so far";
+    show("done");
+  }
+  function exportData() {
+    return { tool: "salecta-annotate", version: 1, dataset_fp: state.fp, annotator: state.name, sample_pct: state.sample,
+             exported_at: new Date().toISOString(), n_items: state.queue.length,
+             labels: state.queue.filter(id => state.labels[id]).map(id => state.labels[id]) };
+  }
+  async function copyOut(btn) {
+    const old = btn.textContent;
+    try { await navigator.clipboard.writeText(JSON.stringify(exportData(), null, 2)); btn.textContent = "Copied"; }
+    catch (e) { btn.textContent = "Couldn't copy"; }
+    setTimeout(() => btn.textContent = old, 2000);
+  }
+  function download(ev) {
+    if (inArtifact) return copyOut(ev.currentTarget);   // downloads are blocked inside artifacts
+    const out = exportData();
     const blob = new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     const safe = state.name.replace(/[^a-z0-9_-]+/gi, "_") || "annotator";

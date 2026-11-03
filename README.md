@@ -76,15 +76,27 @@ model never grades itself. Task options: `-T split=benign|harmful`,
 
 ## Second-annotator labelling
 
-`annotate/index.html` is a single page with no install or login. It shows a
-second Pidgin speaker each Pidgin item *without* the expected answer and asks
-three things: what the message means, whether an AI should help, and whether
-the Pidgin sounds natural. Progress saves in their browser, and at the end
-they download a JSON file and send it back to you.
+`annotate/index.html` is a single page. It shows a Pidgin speaker each Pidgin
+item *without* the expected answer and asks three things: what the message
+means, whether an AI should help, and whether the Pidgin sounds natural. It
+runs in two ways:
 
-- **Hosted:** turn on GitHub Pages for the repo (Settings → Pages → deploy
-  from branch `main`, folder `/`) and send them
-  `https://lord-shax.github.io/Salecta/annotate/`.
+- **Online, with automatic saving (recommended):** published as a private
+  Claude artifact with its own database. Every answer is saved online as the
+  annotator goes, under one record per annotator, so there's nothing to
+  download or send, and they can switch devices mid-way. Invite each
+  annotator **by email as Editor** from the artifact's Share menu. They need
+  a Claude account, and the artifact must not also be shared by public link,
+  because outside viewers can only read. Records are visible to you and
+  editors only. To rebuild the page after the dataset changes:
+  `python scripts/build_artifact.py` (embeds the items), then republish
+  `dist/salecta-annotate.html`. To turn a saved record into a file for scoring:
+  `python scripts/labels_from_db.py record.json annotations/final/labels_A2.json --code A2`.
+- **GitHub Pages, with download:** turn on Pages (Settings → Pages → deploy
+  from branch `main`, folder `/`) and send
+  `https://lord-shax.github.io/Salecta/annotate/`. Progress saves in the
+  annotator's browser, and at the end they download a JSON file and send it
+  to you. Use this for annotators without a Claude account.
 - **Local:** `python -m http.server`, then open `http://localhost:8000/annotate/`.
   If you open the HTML file directly, the page asks you to choose
   `data/items.jsonl`.
