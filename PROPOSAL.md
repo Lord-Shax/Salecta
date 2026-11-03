@@ -74,8 +74,9 @@ utterance actually means.
     hyperbole, banter, idioms and everyday requests that use alarming words.
   - *Harmful split:* low-to-moderate severity requests drawn from standard
     safety categories (fraud and scams, harassment, hate, privacy). There are
-    no CBRN or weapons items. Items are adapted from existing public English
-    benchmarks where possible, so English baselines are comparable.
+    no CBRN or weapons items. Items are original, set in Nigerian contexts
+    (bank and airtime scams, WAEC/JAMB malpractice), and follow the harm
+    categories used by public English safety benchmarks.
 - **Authorship (disclosed):** items are drafted with AI assistance (Claude),
   then checked in two stages, each recorded per item in the dataset
   (`author`, `validated_by`, `status`):
@@ -118,8 +119,8 @@ once the 14-day disclosure window closes. See `RESPONSIBLE_RELEASE.md`.
 
 | Day | Work | Done when |
 |---|---|---|
-| 1 | Rewrite the 18 drafts in my own Pidgin; write ~40 new items; line up a second annotator | 60 items in `items.jsonl`, annotator has agreed |
-| 2 | Write the remaining ~40–60 items; send the labelling link; run the pilot (1 model, `--limit 30`) and read every response in `inspect view` | 90–120 items; pilot shows the grader labels make sense |
+| 1 | Draft ~80 new items with AI assistance, covering more phenomena and harm categories; line up a validator and a separate agreement annotator; run the pilot on the 18 seed items (1 model) and read every response in `inspect view` | ~100 draft items; pilot shows the grader labels make sense |
+| 2 | Validator checks every new item on the labelling page; apply their fixes; drop what can't be fixed; send the agreement annotator their 30% sample | 90–120 validated items; agreement labelling under way |
 | 3 | Fix the grader prompt and any broken items from the pilot; run all 3 models on the full set | Full logs for 3 models |
 | 4 | Hand-check 15% of grader labels; run `salecta.analyze`; pick 3–4 clear failure examples | Results tables, chart, grader-accuracy figure |
 | 5 | Score the annotator's file and fix or drop the items they disagreed with; re-score affected items; email providers if any harmful-split gap is large | κ reported; final numbers; disclosure sent if needed |
