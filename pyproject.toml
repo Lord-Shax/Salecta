@@ -1,0 +1,28 @@
+[project]
+name = "salecta"
+version = "0.1.0"
+description = "Two-sided refusal evaluation of LLMs in Nigerian Pidgin"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "inspect_ai>=0.3.100",
+    "matplotlib>=3.7",
+]
+
+[project.optional-dependencies]
+providers = ["openai", "anthropic", "google-genai"]
+dev = ["pytest"]
+
+[project.entry-points.inspect_ai]
+salecta = "salecta.task"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

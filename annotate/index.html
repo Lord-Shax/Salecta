@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Salecta labelling</title>
+<style>
+  :root {
+    --bg: #f9f9f7; --card: #ffffff; --ink: #1a1a19; --ink2: #5c5b57; --muted: #8a8983;
+    --line: #e3e2dc; --accent: #2a63b8; --accent-bg: #e8f0fb;
+    --ok: #1d6b3a; --ok-bg: #e5f3ea; --no: #a12a2a; --no-bg: #fbe9e9; --warn: #8a5a00; --warn-bg: #fbf1dc;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413; --card: #1e1e1d; --ink: #f0efec; --ink2: #c3c2b7; --muted: #8a8983;
+      --line: #33332f; --accent: #7aa7ec; --accent-bg: #1d2a3d;
+      --ok: #7fd09a; --ok-bg: #18301f; --no: #f19a9a; --no-bg: #3a1c1c; --warn: #f0c46e; --warn-bg: #3a2e14;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; }
+  h2 { font-size: 17px; font-weight: 600; margin: 0 0 12px; }
+  p.sub { color: var(--ink2); margin: 0 0 20px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin-bottom: 16px; }
+  label.f { display: block; font-size: 14px; color: var(--ink2); margin: 14px 0 6px; }
+  input[type=text], textarea, select {
+    width: 100%; font: inherit; color: var(--ink); background: var(--bg);
+    border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; }
+  textarea { min-height: 72px; resize: vertical; }
+  input:focus, textarea:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button { font: inherit; cursor: pointer; border-radius: var(--radius); padding: 10px 16px;
+           border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+  button:hover { border-color: var(--muted); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  @media (prefers-color-scheme: dark) { button.primary { color: #0b0b0b; } }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .spacer { flex: 1; }
+  .prompt { font-size: 20px; line-height: 1.5; padding: 16px; background: var(--bg); border-radius: var(--radius);
+            border: 1px solid var(--line); margin: 4px 0 4px; white-space: pre-wrap; }
+  .choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+  .choice { text-align: left; padding: 10px 12px; }
+  .choice small { display: block; color: var(--ink2); font-size: 13px; }
+  .choice kbd { float: right; font: 12px ui-monospace, monospace; color: var(--muted); }
+  .choice[aria-pressed=true].c-ok { background: var(--ok-bg); border-color: var(--ok); color: var(--ok); }
+  .choice[aria-pressed=true].c-no { background: var(--no-bg); border-color: var(--no); color: var(--no); }
+  .choice[aria-pressed=true].c-mid { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); }
+  .choice[aria-pressed=true].c-acc { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+  .choice[aria-pressed=true] small { color: inherit; }
+  .bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin: 8px 0 0; }
+  .bar > i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .2s; }
+  .meta { font-size: 14px; color: var(--ink2); }
+  .err { color: var(--no); font-size: 14px; min-height: 20px; margin-top: 8px; }
+  .note { font-size: 14px; color: var(--ink2); background: var(--bg); border-radius: var(--radius); padding: 10px 12px; }
+  .hidden { display: none !important; }
+  .done-stat { font-size: 32px; font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Salecta labelling</h1>
+  <p class="sub">Help check how AI models should handle Nigerian Pidgin messages.</p>
+
+  <!-- Setup -->
+  <section id="setup" class="card">
+    <h2>Before you start</h2>
+    <p class="note">You'll see short messages in Pidgin, one at a time. For each one, say what the
+      person means and whether an AI assistant should help them. There are no trick questions:
+      go with your first honest reading as a Pidgin speaker. Your progress saves in this browser,
+      so you can stop and come back later.</p>
+    <label class="f" for="name">Your name or initials</label>
+    <input id="name" type="text" placeholder="AO" autocomplete="off">
+    <label class="f" for="sample">How many items</label>
+    <select id="sample">
+      <option value="30">Random 30% sample (recommended)</option>
+      <option value="100">All items</option>
+    </select>
+    <div id="loadBox" class="hidden">
+      <label class="f" for="file">Couldn't load the item file automatically. Choose <code>data/items.jsonl</code>:</label>
+      <input id="file" type="file" accept=".jsonl,.json,.txt">
+    </div>
+    <div class="err" id="setupErr"></div>
+    <div class="row" style="margin-top:8px">
+      <span class="meta" id="loaded">Loading items…</span><span class="spacer"></span>
+      <button class="primary" id="start">Start labelling</button>
+    </div>
+  </section>
+
+  <!-- Labelling -->
+  <section id="work" class="hidden">
+    <div class="row meta">
+      <span id="pos">Item 1 of 1</span><span class="spacer"></span><span id="who"></span>
+    </div>
+    <div class="bar"><i id="prog"></i></div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="meta">The message</div>
+      <div class="prompt" id="prompt" lang="pcm"></div>
+
+      <label class="f" for="meaning">1. In plain English, what does the person mean?</label>
+      <textarea id="meaning" placeholder="They're praising their friend and asking how to fix a laptop."></textarea>
+
+      <div class="f" style="margin-top:16px">2. Should an AI assistant help with this?</div>
+      <div class="choices" role="group" aria-label="Should an AI assistant help">
+        <button class="choice c-ok" data-k="decision" data-v="COMPLY"><kbd>1</kbd>Help<small>Harmless request</small></button>
+        <button class="choice c-no" data-k="decision" data-v="REFUSE"><kbd>2</kbd>Refuse<small>Harmful request</small></button>
+        <button class="choice c-mid" data-k="decision" data-v="UNSURE"><kbd>3</kbd>Not sure<small>Could go either way</small></button>
+      </div>
+
+      <div class="f" style="margin-top:16px">3. Does the Pidgin sound natural?</div>
+      <div class="choices" role="group" aria-label="Does the Pidgin sound natural">
+        <button class="choice c-acc" data-k="natural" data-v="yes"><kbd>Q</kbd>Yes<small>People talk like this</small></button>
+        <button class="choice c-acc" data-k="natural" data-v="somewhat"><kbd>W</kbd>Somewhat<small>A bit off</small></button>
+        <button class="choice c-acc" data-k="natural" data-v="no"><kbd>E</kbd>No<small>Sounds translated</small></button>
+      </div>
+
+      <label class="f" for="comment">Comment (optional)</label>
+      <input id="comment" type="text" placeholder="I'd say 'abeg' instead of 'please'">
+
+      <div class="err" id="workErr"></div>
+      <div class="row" style="margin-top:8px">
+        <button id="prev">Back</button><span class="spacer"></span>
+        <span class="meta" style="margin-right:8px">Ctrl+Enter to save</span>
+        <button class="primary" id="next">Save and next</button>
+      </div>
+    </div>
+    <div class="row">
+      <span class="spacer"></span><button id="exportEarly">Export progress so far</button>
+    </div>
+  </section>
+
+  <!-- Done -->
+  <section id="done" class="card hidden">
+    <h2>All done. Thank you.</h2>
+    <p><span class="done-stat" id="doneCount">0</span> <span class="meta">items labelled</span></p>
+    <p class="note">Download your labels and send the file back to the project owner.</p>
+    <div class="row">
+      <button class="primary" id="export">Download labels</button>
+      <button id="review">Review my answers</button>
+      <span class="spacer"></span>
+      <button id="reset">Start over</button>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const STORE = "salecta-labels-v1";
+  let items = [];        // full item list
+  let queue = [];        // ids to label (order fixed once started)
+  let state = { name: "", sample: 30, queue: [], idx: 0, labels: {} };
+
+  // ---- storage (may be unavailable; fall back to memory) ----
+  const save = () => { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} };
+  const load = () => { try { return JSON.parse(localStorage.getItem(STORE) || "null"); } catch (e) { return null; } };
+
+  // ---- deterministic shuffle so the sample is reproducible ----
+  function seeded(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 2 ** 32); }
+  function shuffle(arr, seed) { const r = seeded(seed), a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+  function pickSample(pct) {
+    // Stratify by split so benign and harmful are both represented, then interleave in random order.
+    const out = [];
+    for (const split of ["benign", "harmful"]) {
+      const ids = items.filter(it => it.split === split).map(it => it.id);
+      const n = pct >= 100 ? ids.length : Math.max(1, Math.round(ids.length * pct / 100));
+      out.push(...shuffle(ids, 42 + split.length).slice(0, n));
+    }
+    return shuffle(out, 7);
+  }
+
+  function parseItems(text) {
+    const rows = text.split(/\r?\n/).filter(l => l.trim()).map(l => JSON.parse(l));
+    if (!rows.length || !rows[0].variants || !rows[0].variants.pcm) throw new Error("bad format");
+    return rows;
+  }
+  function onItems(rows) {
+    items = rows;
+    $("loaded").textContent = `${items.length} items loaded`;
+    $("loadBox").classList.add("hidden");
+    const saved = load();
+    if (saved && saved.queue && saved.queue.length && saved.queue.every(id => items.some(it => it.id === id))) {
+      state = saved; $("name").value = state.name; $("sample").value = String(state.sample);
+      $("start").textContent = Object.keys(state.labels).length ? "Continue labelling" : "Start labelling";
+    }
+  }
+  fetch("../data/items.jsonl").then(r => { if (!r.ok) throw 0; return r.text(); })
+    .then(t => onItems(parseItems(t)))
+    .catch(() => { $("loaded").textContent = "No items loaded yet"; $("loadBox").classList.remove("hidden"); });
+  $("file").addEventListener("change", e => {
+    const f = e.target.files[0]; if (!f) return;
+    f.text().then(t => { try { onItems(parseItems(t)); $("setupErr").textContent = ""; }
+      catch (err) { $("setupErr").textContent = "That file isn't a Salecta items file. Choose data/items.jsonl."; } });
+  });
+
+  // ---- setup ----
+  $("name").addEventListener("input", () => $("setupErr").textContent = "");
+  $("start").addEventListener("click", () => {
+    const name = $("name").value.trim();
+    if (!items.length) { $("setupErr").textContent = "Load the items file first."; return; }
+    if (!name) { $("setupErr").textContent = "Enter your name or initials."; $("name").focus(); return; }
+    const pct = Number($("sample").value);
+    if (!state.queue.length || state.sample !== pct) { state.queue = pickSample(pct); state.idx = 0; state.labels = {}; }
+    state.name = name; state.sample = pct; save();
+    show("work"); render();
+  });
+
+  // ---- labelling ----
+  const item = () => items.find(it => it.id === state.queue[state.idx]);
+  let cur = {};
+  function render() {
+    const it = item(); const n = state.queue.length;
+    $("pos").textContent = `Item ${state.idx + 1} of ${n}`;
+    $("who").textContent = `Labelling as ${state.name}`;
+    $("prog").style.width = `${Math.round(100 * Object.keys(state.labels).length / n)}%`;
+    $("prompt").textContent = it.variants.pcm;
+    cur = Object.assign({ meaning: "", decision: "", natural: "", comment: "" }, state.labels[it.id] || {});
+    $("meaning").value = cur.meaning; $("comment").value = cur.comment;
+    paint(); $("workErr").textContent = ""; $("prev").disabled = state.idx === 0;
+    $("meaning").focus();
+  }
+  function paint() {
+    document.querySelectorAll(".choice").forEach(b =>
+      b.setAttribute("aria-pressed", String(cur[b.dataset.k] === b.dataset.v)));
+  }
+  function setChoice(k, v) { cur[k] = v; paint(); $("workErr").textContent = ""; }
+  document.querySelectorAll(".choice").forEach(b => b.addEventListener("click", () => setChoice(b.dataset.k, b.dataset.v)));
+  $("meaning").addEventListener("input", () => $("workErr").textContent = "");
+
+  function commit() {
+    cur.meaning = $("meaning").value.trim(); cur.comment = $("comment").value.trim();
+    if (!cur.meaning) { $("workErr").textContent = "Write what the person means first."; $("meaning").focus(); return false; }
+    if (!cur.decision) { $("workErr").textContent = "Choose whether an AI should help."; return false; }
+    if (!cur.natural) { $("workErr").textContent = "Say whether the Pidgin sounds natural."; return false; }
+    const it = item();
+    state.labels[it.id] = { ...cur, item_id: it.id, text: it.variants.pcm, ts: new Date().toISOString() };
+    save(); return true;
+  }
+  $("next").addEventListener("click", () => {
+    if (!commit()) return;
+    const firstOpen = state.queue.findIndex(id => !state.labels[id]);
+    if (state.idx < state.queue.length - 1) { state.idx++; save(); render(); }
+    else if (firstOpen >= 0) { state.idx = firstOpen; save(); render(); }
+    else finish();
+  });
+  $("prev").addEventListener("click", () => { if (state.idx > 0) { state.idx--; save(); render(); } });
+
+  document.addEventListener("keydown", e => {
+    if ($("work").classList.contains("hidden")) return;
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); $("next").click(); return; }
+    const typing = ["TEXTAREA", "INPUT"].includes(document.activeElement.tagName);
+    if (typing) return;
+    const map = { "1": ["decision", "COMPLY"], "2": ["decision", "REFUSE"], "3": ["decision", "UNSURE"],
+                  "q": ["natural", "yes"], "w": ["natural", "somewhat"], "e": ["natural", "no"] };
+    const m = map[e.key.toLowerCase()]; if (m) setChoice(...m);
+  });
+
+  // ---- finish / export ----
+  function finish() { $("doneCount").textContent = Object.keys(state.labels).length; show("done"); }
+  function download() {
+    const out = { tool: "salecta-annotate", version: 1, annotator: state.name, sample_pct: state.sample,
+                  exported_at: new Date().toISOString(), n_items: state.queue.length,
+                  labels: state.queue.filter(id => state.labels[id]).map(id => state.labels[id]) };
+    const blob = new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    const safe = state.name.replace(/[^a-z0-9_-]+/gi, "_") || "annotator";
+    a.href = URL.createObjectURL(blob); a.download = `salecta_labels_${safe}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  $("export").addEventListener("click", download);
+  $("exportEarly").addEventListener("click", download);
+  $("review").addEventListener("click", () => { state.idx = 0; show("work"); render(); });
+  $("reset").addEventListener("click", () => {
+    if (!$("reset").dataset.armed) { $("reset").dataset.armed = "1"; $("reset").textContent = "Click again to erase labels"; return; }
+    state = { name: "", sample: 30, queue: [], idx: 0, labels: {} }; save();
+    delete $("reset").dataset.armed; $("reset").textContent = "Start over"; $("name").value = ""; show("setup");
+  });
+
+  function show(id) { ["setup", "work", "done"].forEach(s => $(s).classList.toggle("hidden", s !== id)); }
+})();
+</script>
+</body>
+</html>
