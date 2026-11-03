@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Google Sheet saving (GitHub Pages version): paste your Apps Script web app URL
+     here. Leave empty to turn it off. See annotate/google_sheet_script.gs. -->
+<meta name="salecta-sheet-url" content="">
 <title>Salecta labelling</title>
 <style>
   /* Light brown theme, fixed (no dark mode) so the black logo always reads. */
@@ -207,7 +210,43 @@
       if (again && remote) { again = false; setTimeout(pushRemote, 800 + Math.random() * 700); }
     }
   }
-  const save = () => { local(); pushRemote(); };
+  // ---- Google Sheet saving (outside artifacts, when a URL is configured) ----
+  const SHEET_URL = ((document.querySelector('meta[name="salecta-sheet-url"]') || {}).content || "").trim();
+  const sheetOn = !inArtifact && /^https:\/\/script\.google(usercontent)?\.com\//.test(SHEET_URL);
+  let sheetBusy = false, sheetAgain = false, sheetFails = 0;
+  const unsent = () => Object.values(state.labels).filter(l => (state.sent || {})[l.item_id] !== l.ts);
+  async function pushSheet() {
+    if (!sheetOn || !state.session) return;
+    if (sheetBusy) { sheetAgain = true; return; }
+    const batch = unsent(); if (!batch.length) return;
+    sheetBusy = true; setSync("saving");
+    const body = JSON.stringify({ tool: "salecta-annotate", version: 1, session_id: state.session,
+      annotator: state.name, dataset_fp: state.fp, sample_pct: state.sample, labels: batch });
+    let ok = false;
+    try {
+      // text/plain keeps this a "simple" request that Google's servers accept from a web page.
+      const r = await fetch(SHEET_URL, { method: "POST", body, headers: { "Content-Type": "text/plain;charset=utf-8" } });
+      const j = await r.json(); ok = !!j.ok;
+    } catch (e) {
+      // Some browsers can't read Google's reply; send again without reading it.
+      try { await fetch(SHEET_URL, { method: "POST", body, mode: "no-cors",
+                                     headers: { "Content-Type": "text/plain;charset=utf-8" } }); ok = true; }
+      catch (e2) { ok = false; }
+    }
+    if (ok) {
+      state.sent = state.sent || {}; batch.forEach(l => state.sent[l.item_id] = l.ts); local();
+      sheetFails = 0; setSync("saved", "Saved online");
+    } else {
+      sheetFails++; setSync("failed", "Not saved online yet. Will retry");
+      sheetAgain = true;
+    }
+    sheetBusy = false;
+    updateDone();
+    if (sheetAgain) { sheetAgain = false; setTimeout(pushSheet, Math.min(30000, 1500 * 2 ** sheetFails)); }
+  }
+  window.addEventListener("online", () => pushSheet());
+
+  const save = () => { local(); pushRemote(); pushSheet(); };
   const remoteReady = (async () => {
     if (!inArtifact) return null;
     try {
@@ -257,7 +296,8 @@
     $("loadBox").classList.add("hidden");
     const adopt = (saved) => {
       state = { name: saved.annotator || saved.name || "", sample: saved.sample_pct || saved.sample || 30,
-                queue: saved.queue, idx: saved.idx || 0, labels: saved.labels || {}, fp: saved.fp || saved.dataset_fp };
+                queue: saved.queue, idx: saved.idx || 0, labels: saved.labels || {}, fp: saved.fp || saved.dataset_fp,
+                session: saved.session, sent: saved.sent || {} };
       $("name").value = state.name; $("sample").value = String(state.sample);
       $("start").textContent = Object.keys(state.labels).length ? "Continue labelling" : "Start labelling";
     };
@@ -294,8 +334,10 @@
     if (!name) { $("setupErr").textContent = "Enter your name or initials."; $("name").focus(); return; }
     const pct = Number($("sample").value);
     if (!state.queue.length || state.sample !== pct || state.fp !== fp) {
-      state.queue = pickSample(pct); state.idx = 0; state.labels = {};
+      state.queue = pickSample(pct); state.idx = 0; state.labels = {}; state.sent = {};
+      state.session = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
     }
+    if (!state.session) state.session = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
     state.name = name; state.sample = pct; state.fp = fp; save();
     show("work"); render();
   });
@@ -351,18 +393,23 @@
   });
 
   // ---- finish / export ----
-  function finish() {
+  function finish() { show("done"); updateDone(); pushSheet(); }
+  function updateDone() {
+    if ($("done").classList.contains("hidden")) return;
     $("doneCount").textContent = Object.keys(state.labels).length;
-    const online = !!remote;
+    const pendingSheet = sheetOn && unsent().length > 0;
+    const online = !!remote || (sheetOn && !pendingSheet);
     $("doneNote").textContent = online
       ? "Your labels are saved online and the project owner can already see them. There's nothing to send."
+      : pendingSheet
+        ? (sheetFails ? "Some answers haven't reached the project yet. Keep this page open, or download your labels and send them to the project owner."
+                      : "Saving your last answers…")
       : inArtifact
         ? "Online saving isn't working for your account. Copy your labels and paste them into a message to the project owner."
         : "Download your labels and send the file back to the project owner.";
     $("export").textContent = online ? (inArtifact ? "Copy a backup" : "Download a backup")
                                      : (inArtifact ? "Copy labels" : "Download labels");
     $("exportEarly").textContent = inArtifact ? "Copy progress so far" : "Export progress so far";
-    show("done");
   }
   function exportData() {
     return { tool: "salecta-annotate", version: 1, dataset_fp: state.fp, annotator: state.name, sample_pct: state.sample,

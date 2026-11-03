@@ -92,11 +92,36 @@ runs in two ways:
   `python scripts/build_artifact.py` (embeds the items), then republish
   `dist/salecta-annotate.html`. To turn a saved record into a file for scoring:
   `python scripts/labels_from_db.py record.json annotations/final/labels_A2.json --code A2`.
-- **GitHub Pages, with download:** turn on Pages (Settings → Pages → deploy
-  from branch `main`, folder `/`) and send
-  `https://lord-shax.github.io/Salecta/annotate/`. Progress saves in the
-  annotator's browser, and at the end they download a JSON file and send it
-  to you. Use this for annotators without a Claude account.
+- **GitHub Pages, saving to a Google Sheet (no account needed):** turn on
+  Pages (Settings → Pages → deploy from branch `main`, folder `/`) and send
+  `https://lord-shax.github.io/Salecta/annotate/`. Once the Google Sheet
+  script is set up (below), every answer is written to your sheet as the
+  annotator goes, one row per answer. Changed answers update their row, and
+  answers saved during a dropped connection are sent when it returns. Without
+  the script, progress stays in the annotator's browser and they download a
+  file at the end.
+
+### Setting up the Google Sheet
+
+1. Create a new Google Sheet (e.g. "Salecta labels").
+2. Extensions → Apps Script. Delete what's there, paste in
+   `annotate/google_sheet_script.gs`, and save.
+3. Deploy → New deployment → type **Web app**. Execute as **Me**; Who has
+   access **Anyone**. Deploy, approve the permissions prompt, and copy the
+   **Web app URL** (it ends in `/exec`).
+4. Put that URL in `annotate/index.html`, in
+   `<meta name="salecta-sheet-url" content="…">`, and push.
+
+To score: open the `labels` tab, File → Download → CSV, then
+
+```bash
+python scripts/labels_from_sheet.py salecta_labels.csv --out annotations/final --codes "Ada=A2"
+python -m salecta.agreement annotations/final/labels_A2_1.json --out results/agreement_A2.md
+```
+
+Anyone who finds the web app URL could send rows to the sheet. The script
+only accepts well-formed Salecta answers and blocks spreadsheet formulas, but
+glance over the sheet before scoring.
 - **Local:** `python -m http.server`, then open `http://localhost:8000/annotate/`.
   If you open the HTML file directly, the page asks you to choose
   `data/items.jsonl`.
