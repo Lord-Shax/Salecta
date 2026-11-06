@@ -85,6 +85,7 @@
     <select id="sample">
       <option value="30">Random 30% sample (recommended)</option>
       <option value="100">All items</option>
+      <option value="unchecked">Only the items not yet checked by a native speaker</option>
     </select>
     <div id="loadBox" class="hidden">
       <label class="f" for="file">Couldn't load the item file automatically. Choose <code>data/items.jsonl</code>:</label>
@@ -266,6 +267,8 @@
   function shuffle(arr, seed) { const r = seeded(seed), a = arr.slice();
     for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
   function pickSample(pct) {
+    // "unchecked": every item no native speaker has validated yet, in random order.
+    if (pct === "unchecked") return shuffle(items.filter(it => it.status === "draft").map(it => it.id), 7);
     // Stratify by split so benign and harmful are both represented, then interleave in random order.
     const out = [];
     for (const split of ["benign", "harmful"]) {
@@ -327,12 +330,15 @@
   });
 
   // ---- setup ----
+  // A link ending in ?set=unchecked opens straight on the not-yet-checked items.
+  if (new URLSearchParams(location.search).get("set") === "unchecked") $("sample").value = "unchecked";
   $("name").addEventListener("input", () => $("setupErr").textContent = "");
   $("start").addEventListener("click", () => {
     const name = $("name").value.trim();
     if (!items.length) { $("setupErr").textContent = "Load the items file first."; return; }
     if (!name) { $("setupErr").textContent = "Enter your name or initials."; $("name").focus(); return; }
-    const pct = Number($("sample").value);
+    const v = $("sample").value;
+    const pct = v === "unchecked" ? v : Number(v);
     if (!state.queue.length || state.sample !== pct || state.fp !== fp) {
       state.queue = pickSample(pct); state.idx = 0; state.labels = {}; state.sent = {};
       state.session = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
