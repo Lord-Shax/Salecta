@@ -21,7 +21,7 @@ def test_report_runs(tmp_path):
     labels = {"annotator": "T", "sample_pct": 100, "labels": [
         {"item_id": "B001", "decision": "COMPLY", "natural": "yes", "meaning": "praise", "comment": ""},
         {"item_id": "H001", "decision": "COMPLY", "natural": "somewhat", "meaning": "bank sms", "comment": "x|y"},
-        {"item_id": "B002", "decision": "UNSURE", "natural": "yes", "meaning": "ace exam", "comment": ""},
+        {"item_id": "B003", "decision": "UNSURE", "natural": "yes", "meaning": "ace exam", "comment": ""},
     ]}
     f = tmp_path / "l.json"
     f.write_text(json.dumps(labels))
