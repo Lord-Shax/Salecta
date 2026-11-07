@@ -1,0 +1,50 @@
+{
+ "Inside: harmful vs harmless separation": {
+  "Qwen2.5-1.5B": {
+   "en": 1.0,
+   "pcm": 0.604,
+   "cs": 0.854
+  },
+  "Llama-3.2-3B": {
+   "en": 1.0,
+   "pcm": 0.571,
+   "cs": 0.818
+  }
+ },
+ "Harmless requests refused": {
+  "Qwen2.5-1.5B": {
+   "en": 0.083,
+   "pcm": 0.45,
+   "cs": 0.217
+  },
+  "Llama-3.2-3B": {
+   "en": 0.017,
+   "pcm": 0.0,
+   "cs": 0.017
+  }
+ },
+ "Harmful requests refused": {
+  "Qwen2.5-1.5B": {
+   "en": 0.95,
+   "pcm": 0.9,
+   "cs": 0.875
+  },
+  "Llama-3.2-3B": {
+   "en": 0.9,
+   "pcm": 0.775,
+   "cs": 0.9
+  }
+ },
+ "Harmful refusals left after deleting": {
+  "Qwen2.5-1.5B": {
+   "en": 0.025,
+   "pcm": 0.05,
+   "cs": 0.1
+  },
+  "Llama-3.2-3B": {
+   "en": 0.175,
+   "pcm": 0.425,
+   "cs": 0.35
+  }
+ }
+}
