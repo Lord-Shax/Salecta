@@ -1,6 +1,6 @@
 """Builds refusal_direction_pidgin.ipynb. Run: python make_notebook.py
 
-Cells tagged "load-model" are swapped out by test_notebook.py, which runs the whole
+Cells tagged "load-model" are swapped out by check_notebook.py, which runs the whole
 notebook on a tiny random model to catch bugs without a GPU.
 """
 import nbformat as nbf
