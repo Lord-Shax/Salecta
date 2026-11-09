@@ -68,8 +68,12 @@ OUT = "results"; os.makedirs(OUT, exist_ok=True)
 """)
 
 code(r"""
-# Pick the model to test. Run 1 used Qwen; run 2 uses Llama (the model Zhang, MRL 2026, also tested).
-MODEL_ID = "meta-llama/Llama-3.2-3B-Instruct"     # or "Qwen/Qwen2.5-1.5B-Instruct"
+# Pick the model to test (one per run). Two families at two sizes, plus a fully open model:
+#   "Qwen/Qwen2.5-1.5B-Instruct"        "Qwen/Qwen2.5-7B-Instruct"
+#   "meta-llama/Llama-3.2-3B-Instruct"  "meta-llama/Llama-3.1-8B-Instruct"   (Llama: accept the licence on Hugging Face)
+#   "allenai/OLMo-2-1124-7B-Instruct"
+# 7B/8B models need Kaggle's "GPU T4 x2"; the model is split across both GPUs automatically.
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
 
 from transformers import AutoTokenizer, AutoModelForCausalLM
 # On Kaggle, a background run ("Save Version") can't ask for input, so read the token from
@@ -92,8 +96,11 @@ elif MODEL_ID.startswith("meta-llama"):
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 DTYPE = torch.float16 if DEVICE == "cuda" else torch.float32
 tok = AutoTokenizer.from_pretrained(MODEL_ID)
-model = AutoModelForCausalLM.from_pretrained(MODEL_ID, torch_dtype=DTYPE).to(DEVICE).eval()
-print(MODEL_ID, "on", DEVICE)
+if DEVICE == "cuda":
+    model = AutoModelForCausalLM.from_pretrained(MODEL_ID, torch_dtype=DTYPE, device_map="auto").eval()
+else:
+    model = AutoModelForCausalLM.from_pretrained(MODEL_ID, torch_dtype=DTYPE).eval()
+print(MODEL_ID, "on", DEVICE, f"({torch.cuda.device_count()} GPU)" if DEVICE == "cuda" else "")
 """, tags=["load-model"])
 
 code(r"""
@@ -102,6 +109,9 @@ if tok.pad_token is None:
     tok.pad_token = tok.eos_token
 LAYERS = model.model.layers
 N_LAYERS = len(LAYERS)
+IN_DEV = model.get_input_embeddings().weight.device   # where inputs go (first GPU if split)
+N_PARAMS = sum(p.numel() for p in model.parameters())
+BS = 16 if N_PARAMS < 4e9 else 6                      # smaller batches for 7B/8B models
 print(N_LAYERS, "layers, hidden size", model.config.hidden_size)
 
 def fmt(prompt):
@@ -149,12 +159,13 @@ the model starts answering. That is where it has "decided" how to respond.
 
 code(r"""
 @torch.no_grad()
-def last_acts(prompts, bs=16):
+def last_acts(prompts, bs=None):
+    bs = bs or BS
     # Returns a tensor [n_prompts, n_layers + 1, hidden]: the residual stream at the last token, every layer.
     out = []
     for i in range(0, len(prompts), bs):
         enc = tok([fmt(p) for p in prompts[i:i + bs]], return_tensors="pt", padding=True,
-                  add_special_tokens=False).to(DEVICE)
+                  add_special_tokens=False).to(IN_DEV)
         hs = model(**enc, output_hidden_states=True).hidden_states
         out.append(torch.stack([h[:, -1, :].float().cpu() for h in hs], dim=1))
     return torch.cat(out)
@@ -173,6 +184,9 @@ the average for harmless ones. What's left is the direction that separates "harm
 **How we choose:** for several middle layers, we *delete* that layer's direction from the model
 everywhere ("ablation") and check how often it still refuses the 32 held-back harmful requests.
 The layer whose direction, once deleted, removes the most refusals is the refusal direction.
+Following Arditi et al., a candidate is rejected if deleting it disturbs the model's answers to
+**harmless** prompts too much (KL divergence of the next-word prediction above 0.1): a good refusal
+direction should switch off refusal, not damage the model.
 """)
 
 code(r"""
@@ -222,11 +236,12 @@ class Ablate:
             h.remove()
 
 @torch.no_grad()
-def generate(prompts, max_new_tokens=64, bs=16):
+def generate(prompts, max_new_tokens=64, bs=None):
+    bs = bs or BS
     outs = []
     for i in range(0, len(prompts), bs):
         enc = tok([fmt(p) for p in prompts[i:i + bs]], return_tensors="pt", padding=True,
-                  add_special_tokens=False).to(DEVICE)
+                  add_special_tokens=False).to(IN_DEV)
         g = model.generate(**enc, max_new_tokens=max_new_tokens, do_sample=False,
                            pad_token_id=tok.pad_token_id)
         outs += tok.batch_decode(g[:, enc["input_ids"].shape[1]:], skip_special_tokens=True)
@@ -245,16 +260,39 @@ print(f"Baseline: refuses {base_rate:.0%} of held-out harmful English requests")
 """)
 
 code(r"""
-# Try the direction from every 2nd layer in the middle of the model (skip the first and last 20%).
+@torch.no_grad()
+def next_token_logprobs(prompts, d=None, bs=None):
+    bs, out = bs or BS, []
+    for i in range(0, len(prompts), bs):
+        enc = tok([fmt(p) for p in prompts[i:i + bs]], return_tensors="pt", padding=True,
+                  add_special_tokens=False).to(IN_DEV)
+        if d is None:
+            logits = model(**enc).logits[:, -1, :]
+        else:
+            with Ablate(d):
+                logits = model(**enc).logits[:, -1, :]
+        out.append(torch.log_softmax(logits.float(), -1).cpu())
+    return torch.cat(out)
+
+base_lp = next_token_logprobs(val_safe)
+def kl_on_harmless(d):
+    lp = next_token_logprobs(val_safe, d)
+    return float((base_lp.exp() * (base_lp - lp)).sum(-1).mean())
+
+# Try the direction from every 2nd layer in the middle of the model (skip the first 20% and last 20%).
+KL_MAX = 0.1
 candidates = list(range(int(N_LAYERS * .2), int(N_LAYERS * .8) + 1, 2))
-sweep = {}
+sweep, kl = {}, {}
 for l in candidates:
     sweep[l], _ = refusal_rate(val_harm, dirs[l])
-    print(f"layer {l:2d}: refusal after ablation {sweep[l]:.0%}")
+    kl[l] = kl_on_harmless(dirs[l])
+    print(f"layer {l:2d}: refusal after ablation {sweep[l]:.0%}   KL on harmless {kl[l]:.3f}"
+          + ("" if kl[l] <= KL_MAX else "   (rejected: damages the model)"))
 
-BEST = min(sweep, key=lambda l: (sweep[l], -val_auc[l]))
+ok = [l for l in candidates if kl[l] <= KL_MAX] or candidates   # fall back if every layer is rejected
+BEST = min(ok, key=lambda l: (sweep[l], kl[l]))
 r_hat = dirs[BEST]
-print(f"\nChosen layer: {BEST}  (refusal drops from {base_rate:.0%} to {sweep[BEST]:.0%})")
+print(f"\nChosen layer: {BEST}  (refusal drops from {base_rate:.0%} to {sweep[BEST]:.0%}, KL {kl[BEST]:.3f})")
 
 # Control: deleting a random direction should change nothing.
 rand = torch.randn_like(r_hat); rand /= rand.norm()
@@ -444,7 +482,7 @@ summary = {
     "model": MODEL_ID, "chosen_layer": BEST, "n_layers": N_LAYERS,
     "refusal_held_out_harmful_en": base_rate, "refusal_after_ablation_en": sweep[BEST],
     "refusal_after_random_ablation": rand_rate, "refusal_held_out_harmless_en": safe_rate,
-    "layer_sweep": sweep, "auroc_by_language": auc,
+    "layer_sweep": sweep, "layer_kl_harmless": kl, "kl_max": KL_MAX, "auroc_by_language": auc,
     "cosine_at_best_layer": {k: float(v[BEST]) for k, v in curves.items()},
     "refusal_alignment_above_control_en_pcm": float(excess),
     "cosine_by_layer": {k: [float(x) for x in v] for k, v in curves.items()},
