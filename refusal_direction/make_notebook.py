@@ -72,8 +72,9 @@ code(r"""
 #   "Qwen/Qwen2.5-1.5B-Instruct"        "Qwen/Qwen2.5-7B-Instruct"
 #   "meta-llama/Llama-3.2-3B-Instruct"  "meta-llama/Llama-3.1-8B-Instruct"   (Llama: accept the licence on Hugging Face)
 #   "allenai/OLMo-2-1124-7B-Instruct"
-# 7B/8B models need Kaggle's "GPU T4 x2"; the model is split across both GPUs automatically.
-MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+# Small models run at full precision anywhere. 7B/8B: full precision on Colab Pro (L4/A100) or Kaggle
+# T4 x2; on a single free Colab T4 they load in 8-bit automatically.
+MODEL_ID = "Qwen/Qwen2.5-1.5B-Instruct"
 
 from transformers import AutoTokenizer, AutoModelForCausalLM
 # On Kaggle, a background run ("Save Version") can't ask for input, so read the token from
@@ -96,11 +97,30 @@ elif MODEL_ID.startswith("meta-llama"):
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 DTYPE = torch.float16 if DEVICE == "cuda" else torch.float32
 tok = AutoTokenizer.from_pretrained(MODEL_ID)
+# Full precision (fp16) when the model fits on the GPU(s); otherwise 8-bit, which roughly halves
+# memory so 7B/8B models fit a single free Colab T4. The choice is recorded in the results.
+QUANT = "fp16"
 if DEVICE == "cuda":
-    model = AutoModelForCausalLM.from_pretrained(MODEL_ID, torch_dtype=DTYPE, device_map="auto").eval()
+    from huggingface_hub import HfApi
+    try:
+        n_params = HfApi().model_info(MODEL_ID).safetensors.total
+    except Exception:
+        n_params = 8e9 if re.search(r"[78]B", MODEL_ID) else 3e9
+    gpu_gb = sum(torch.cuda.get_device_properties(i).total_memory for i in range(torch.cuda.device_count())) / 1e9
+    if n_params * 2 / 1e9 > gpu_gb * 0.85:
+        QUANT = "int8"
+        import subprocess, sys
+        subprocess.run([sys.executable, "-m", "pip", "-q", "install", "bitsandbytes"], check=True)
+        from transformers import BitsAndBytesConfig
+        model = AutoModelForCausalLM.from_pretrained(
+            MODEL_ID, device_map="auto", torch_dtype=DTYPE,
+            quantization_config=BitsAndBytesConfig(load_in_8bit=True)).eval()
+    else:
+        model = AutoModelForCausalLM.from_pretrained(MODEL_ID, torch_dtype=DTYPE, device_map="auto").eval()
 else:
     model = AutoModelForCausalLM.from_pretrained(MODEL_ID, torch_dtype=DTYPE).eval()
-print(MODEL_ID, "on", DEVICE, f"({torch.cuda.device_count()} GPU)" if DEVICE == "cuda" else "")
+print(MODEL_ID, "on", DEVICE, "|", QUANT,
+      f"| {torch.cuda.device_count()} GPU, {gpu_gb:.0f} GB" if DEVICE == "cuda" else "")
 """, tags=["load-model"])
 
 code(r"""
@@ -479,7 +499,7 @@ publish it**.
 
 code(r"""
 summary = {
-    "model": MODEL_ID, "chosen_layer": BEST, "n_layers": N_LAYERS,
+    "model": MODEL_ID, "precision": QUANT, "chosen_layer": BEST, "n_layers": N_LAYERS,
     "refusal_held_out_harmful_en": base_rate, "refusal_after_ablation_en": sweep[BEST],
     "refusal_after_random_ablation": rand_rate, "refusal_held_out_harmless_en": safe_rate,
     "layer_sweep": sweep, "layer_kl_harmless": kl, "kl_max": KL_MAX, "auroc_by_language": auc,

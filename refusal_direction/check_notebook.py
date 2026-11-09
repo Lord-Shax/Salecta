@@ -47,7 +47,7 @@ for i, cell in enumerate(nb.cells):
         continue
     src = "\n".join(l for l in cell.source.splitlines() if not l.lstrip().startswith("!"))
     if "load-model" in cell.metadata.get("tags", []):
-        src = "MODEL_ID='tiny-random'; DEVICE='cpu'; DTYPE=torch.float32"
+        src = "MODEL_ID='tiny-random'; DEVICE='cpu'; DTYPE=torch.float32; QUANT='fp16'"
         ns.update(tok=StubTok(), model=Qwen2ForCausalLM(cfg).eval())
     t = time.time()
     try:
