@@ -70,15 +70,19 @@ with columns to mark whether you agree with the grader. Direct provider keys
 work too (`openai/...` with `OPENAI_API_KEY`, `anthropic/...` with
 `ANTHROPIC_API_KEY`, `google/...` with `GOOGLE_API_KEY`).
 
-### Full run (repeat per model)
+### Full run (three models, all 60 items)
 
 ```bash
-inspect eval src/salecta/task.py --model <provider/model> \
-    --model-role grader=<provider/model from a different company>
-
-inspect view                                # browse every response
-python -m salecta.analyze --logs logs --out results
+python scripts/full_run.py     # runs each model, graded by a model from another company
 ```
+
+It writes summaries, a chart and review sheets, and packs everything into
+`salecta_full_run.zip`. Interrupted? Run it again: finished models are skipped.
+`inspect view --log-dir logs/full` browses every response.
+
+No computer set up? Open
+[`notebooks/run_salecta_in_browser.ipynb`](https://colab.research.google.com/github/Lord-Shax/Salecta/blob/main/notebooks/run_salecta_in_browser.ipynb)
+in Colab or Kaggle (no GPU needed).
 
 The model names above are examples; check your provider for current ones.
 Use a grader from a *different* provider than the model being tested, so a

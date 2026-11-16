@@ -62,6 +62,7 @@ import numpy as np, pandas as pd, requests, torch
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_auc_score
 
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 SEED = 0
 random.seed(SEED); np.random.seed(SEED); torch.manual_seed(SEED)
 OUT = "results"; os.makedirs(OUT, exist_ok=True)
@@ -74,7 +75,7 @@ code(r"""
 #   "allenai/OLMo-2-1124-7B-Instruct"
 # Small models run at full precision anywhere. 7B/8B: full precision on Colab Pro (L4/A100) or Kaggle
 # T4 x2; on a single free Colab T4 they load in 8-bit automatically.
-MODEL_ID = "Qwen/Qwen2.5-1.5B-Instruct"
+MODEL_ID = "allenai/OLMo-2-1124-7B-Instruct"
 
 from transformers import AutoTokenizer, AutoModelForCausalLM
 # On Kaggle, a background run ("Save Version") can't ask for input, so read the token from
@@ -107,18 +108,26 @@ if DEVICE == "cuda":
     except Exception:
         n_params = 8e9 if re.search(r"[78]B", MODEL_ID) else 3e9
     gpu_gb = sum(torch.cuda.get_device_properties(i).total_memory for i in range(torch.cuda.device_count())) / 1e9
+    # Leave room on every GPU for activations, and make the model spread evenly across GPUs
+    # instead of filling one to the brim (which crashed OLMo-2-7B on Kaggle's T4 x2).
+    MAX_MEM = {i: f"{int(torch.cuda.get_device_properties(i).total_memory / 2**30 * 0.80)}GiB"
+               for i in range(torch.cuda.device_count())}
+    MAX_MEM["cpu"] = "30GiB"
     if n_params * 2 / 1e9 > gpu_gb * 0.85:
         QUANT = "int8"
         import subprocess, sys
         subprocess.run([sys.executable, "-m", "pip", "-q", "install", "bitsandbytes"], check=True)
         from transformers import BitsAndBytesConfig
         model = AutoModelForCausalLM.from_pretrained(
-            MODEL_ID, device_map="auto", torch_dtype=DTYPE,
+            MODEL_ID, device_map="auto", max_memory=MAX_MEM, dtype=DTYPE,
             quantization_config=BitsAndBytesConfig(load_in_8bit=True)).eval()
     else:
-        model = AutoModelForCausalLM.from_pretrained(MODEL_ID, torch_dtype=DTYPE, device_map="auto").eval()
+        model = AutoModelForCausalLM.from_pretrained(MODEL_ID, dtype=DTYPE, device_map="auto",
+                                                     max_memory=MAX_MEM).eval()
 else:
-    model = AutoModelForCausalLM.from_pretrained(MODEL_ID, torch_dtype=DTYPE).eval()
+    model = AutoModelForCausalLM.from_pretrained(MODEL_ID, dtype=DTYPE).eval()
+if DEVICE == "cuda" and any(str(v) in ("cpu", "disk") for v in getattr(model, "hf_device_map", {}).values()):
+    print("Note: part of the model did not fit on the GPUs and runs on the CPU, so this run will be slower.")
 print(MODEL_ID, "on", DEVICE, "|", QUANT,
       f"| {torch.cuda.device_count()} GPU, {gpu_gb:.0f} GB" if DEVICE == "cuda" else "")
 """, tags=["load-model"])

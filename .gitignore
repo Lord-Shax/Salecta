@@ -6,3 +6,4 @@ logs/
 results_raw/
 .pytest_cache/
 dist/
+salecta_full_run.zip
