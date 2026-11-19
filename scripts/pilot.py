@@ -64,6 +64,11 @@ def check_keys(*models: str) -> None:
         var = KEYS.get(m.split("/")[0])
         if var and not os.environ.get(var):
             missing.append(f"{var} (needed for {m})")
+    k = os.environ.get("OPENROUTER_API_KEY", "")
+    if any(m.startswith("openrouter/") for m in models) and k and not k.startswith("sk-or-"):
+        sys.exit("OPENROUTER_API_KEY is not an OpenRouter key (those start with sk-or-"
+                 + ("; this looks like a Hugging Face token" if k.startswith("hf_") else "")
+                 + "). Copy the right key from openrouter.ai/settings/keys.")
     if missing:
         sys.exit("Missing API key(s):\n  " + "\n  ".join(missing)
                  + "\nSet them first, e.g.  export OPENROUTER_API_KEY=...   (Windows PowerShell: $env:OPENROUTER_API_KEY=\"...\")")

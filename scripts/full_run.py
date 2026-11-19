@@ -76,19 +76,25 @@ def main() -> None:
         try:
             log = run_eval(model, grader, "validated", a.limit, log_dir, a.mock)
         except Exception as e:  # keep going so one bad model doesn't lose the others
-            print(f"  FAILED: {e}")
+            print(f"  FAILED: {str(e)[:600]}")
             failed.append(model)
             continue
         if log.status != "success":
-            print(f"  ended with status '{log.status}': {log.error.message if log.error else ''}")
+            print(f"  ended with status '{log.status}': {(log.error.message if log.error else '')[:600]}")
             failed.append(model)
             continue
         n, bad = write_review(log, out_dir / f"review_{model.split('/')[-1]}.csv")
         print(f"  {n} prompts graded" + (f"; grader format failed {bad} times" if bad else ""))
 
+    if len(failed) == len(pairs):
+        sys.exit("\nNo model finished, so there is nothing to summarise. The reason is in the lines marked "
+                 "FAILED or 'ended with status' above.\nMost common causes: the OpenRouter key was pasted wrongly "
+                 "(its length should be 73), or the account has no credit left.")
+
     say("Summarising all models")
-    subprocess.check_call([sys.executable, "-m", "salecta.analyze", "--logs", str(log_dir), "--out", str(out_dir)],
-                          cwd=ROOT, env={**os.environ, "PYTHONPATH": str(ROOT / "src")})
+    if subprocess.call([sys.executable, "-m", "salecta.analyze", "--logs", str(log_dir), "--out", str(out_dir)],
+                       cwd=ROOT, env={**os.environ, "PYTHONPATH": str(ROOT / "src")}) != 0:
+        print("  The summary step failed; the raw logs are still packed below so nothing is lost.")
 
     bundle = ROOT / "salecta_full_run.zip"
     with zipfile.ZipFile(bundle, "w", zipfile.ZIP_DEFLATED) as z:
