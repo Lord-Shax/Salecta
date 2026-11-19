@@ -47,6 +47,8 @@ def main() -> None:
     ap.add_argument("--pair", action="append", metavar="MODEL=GRADER",
                     help="replace the default models; repeat for each, e.g. --pair openrouter/a/x=openrouter/b/y")
     ap.add_argument("--limit", type=int, help="cap prompts per model (quick smoke test)")
+    ap.add_argument("--rerun", action="append", default=[], metavar="MODEL",
+                    help="run this model again even if it already finished, e.g. --rerun claude-haiku-5.5")
     ap.add_argument("--mock", action="store_true")
     a = ap.parse_args()
 
@@ -70,7 +72,8 @@ def main() -> None:
     failed = []
     for i, (model, grader) in enumerate(pairs, 1):
         say(f"Model {i}/{len(pairs)}: {model}  (graded by {grader})")
-        if not a.mock and log_dir.exists() and finished(log_dir, model):
+        forced = any(r in model for r in a.rerun)
+        if not a.mock and not forced and log_dir.exists() and finished(log_dir, model):
             print("  already finished in an earlier run; skipping")
             continue
         try:

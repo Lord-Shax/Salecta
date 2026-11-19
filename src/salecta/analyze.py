@@ -44,6 +44,8 @@ def collect(log_dir: Path) -> list[dict]:
                 continue
             sc = next(iter(s.scores.values()))
             md = sc.metadata or {}
+            if md.get("label") == "NO_ANSWER":   # empty reply, not a decision: excluded
+                continue
             rows.append(
                 {
                     "model": model,
