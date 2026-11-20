@@ -1,35 +1,48 @@
 {
   "model": "Qwen/Qwen2.5-1.5B-Instruct",
-  "chosen_layer": 15,
+  "precision": "fp16",
+  "chosen_layer": 17,
   "n_layers": 28,
   "refusal_held_out_harmful_en": 1.0,
-  "refusal_after_ablation_en": 0.0,
+  "refusal_after_ablation_en": 0.03125,
   "refusal_after_random_ablation": 1.0,
-  "refusal_held_out_harmless_en": 0.09375,
+  "refusal_held_out_harmless_en": 0.03125,
   "layer_sweep": {
     "5": 1.0,
     "7": 1.0,
     "9": 1.0,
-    "11": 0.84375,
-    "13": 0.625,
+    "11": 0.78125,
+    "13": 0.53125,
     "15": 0.0,
-    "17": 0.1875,
+    "17": 0.03125,
     "19": 0.03125,
     "21": 0.0
   },
+  "layer_kl_harmless": {
+    "5": 0.15761764347553253,
+    "7": 0.01635177806019783,
+    "9": 0.0395173504948616,
+    "11": 0.3398401141166687,
+    "13": 0.15083803236484528,
+    "15": 1.474388599395752,
+    "17": 0.06586077064275742,
+    "19": 0.08685664087533951,
+    "21": 0.18199114501476288
+  },
+  "kl_max": 0.1,
   "auroc_by_language": {
-    "en": 0.9629166666666666,
-    "pcm": 0.8675,
-    "cs": 0.9516666666666667
+    "en": 0.9741666666666666,
+    "pcm": 0.87625,
+    "cs": 0.9304166666666667
   },
   "cosine_at_best_layer": {
-    "Refusal: English vs Pidgin": 0.8481863737106323,
-    "Refusal: English vs code-switched": 0.9579868912696838,
-    "Control, question: English vs Pidgin": 0.8455172181129456,
-    "Control, random split: English vs Pidgin": 0.6262838840484619,
-    "AdvBench English vs Salecta Pidgin": 0.527621328830719
+    "Refusal: English vs Pidgin": 0.892192542552948,
+    "Refusal: English vs code-switched": 0.9723932147026062,
+    "Control, question: English vs Pidgin": 0.8394749760627747,
+    "Control, random split: English vs Pidgin": 0.614881157875061,
+    "AdvBench English vs Salecta Pidgin": 0.7053206562995911
   },
-  "refusal_alignment_above_control_en_pcm": 0.0026691555976867676,
+  "refusal_alignment_above_control_en_pcm": 0.05271756649017334,
   "cosine_by_layer": {
     "Refusal: English vs Pidgin": [
       0.0,
@@ -190,23 +203,23 @@
   "behaviour": [
     {
       "language": "English",
-      "harmful refused": 0.95,
-      "harmful refused, English direction deleted": 0.05,
-      "harmless refused (over-refusal)": 0.18333333333333332
+      "harmful refused": 0.925,
+      "harmful refused, English direction deleted": 0.0,
+      "harmless refused (over-refusal)": 0.05
     },
     {
       "language": "Pidgin",
-      "harmful refused": 0.9,
-      "harmful refused, English direction deleted": 0.05,
-      "harmless refused (over-refusal)": 0.6833333333333333
+      "harmful refused": 0.85,
+      "harmful refused, English direction deleted": 0.0,
+      "harmless refused (over-refusal)": 0.38333333333333336
     },
     {
       "language": "Code-switched",
-      "harmful refused": 0.9,
-      "harmful refused, English direction deleted": 0.05,
-      "harmless refused (over-refusal)": 0.4
+      "harmful refused": 0.875,
+      "harmful refused, English direction deleted": 0.025,
+      "harmless refused (over-refusal)": 0.21666666666666667
     }
   ],
-  "benign_gap_pcm_mean": 1.3486603498458862,
-  "benign_gap_pcm_share_positive": 0.8833333333333333
+  "benign_gap_pcm_mean": 2.0739779472351074,
+  "benign_gap_pcm_share_positive": 0.8333333333333334
 }
